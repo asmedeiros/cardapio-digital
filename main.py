@@ -7,6 +7,7 @@ from app.components import product_card, cart_item_row
 
 WHATSAPP_NUMERO = "5511957695751"
 
+
 def carregar_produtos():
     caminho = os.path.join(os.path.dirname(__file__), "produtos.json")
     with open(caminho, "r", encoding="utf-8") as f:
@@ -75,24 +76,27 @@ def main(page: ft.Page):
         atualizar_sheet()
 
     # =========================
-    # WHATSAPP
+    # WHATSAPP (VERSÃO WEB SAFE)
     # =========================
-    async def finalizar_whats(e):
+    def gerar_link_whatsapp():
         linhas = ["🛒 *Pedido:*", ""]
+
         for item in carrinho.values():
             linhas.append(
                 f'- {item["quantidade"]}x {item["nome"]} – R$ {item["preco"] * item["quantidade"]:.2f}'
             )
+
         linhas.append("")
         linhas.append(f"*Total:* R$ {total_valor():.2f}")
 
         texto = urllib.parse.quote("\n".join(linhas))
-        await page.launch_url(f"https://wa.me/{WHATSAPP_NUMERO}?text={texto}")
+        return f"https://wa.me/{WHATSAPP_NUMERO}?text={texto}"
 
     # =========================
     # BOTTOMSHEET
     # =========================
     sheet_content = ft.Column(scroll=ft.ScrollMode.AUTO, spacing=10)
+
     sheet = ft.BottomSheet(
         content=ft.Container(
             padding=20,
@@ -101,24 +105,35 @@ def main(page: ft.Page):
         ),
         open=False
     )
+
     page.overlay.append(sheet)
 
     def atualizar_sheet():
         sheet_content.controls.clear()
+
         sheet_content.controls.append(
             ft.Text("🧾 Revisar pedido", size=18, weight=ft.FontWeight.BOLD)
         )
+
         for item in carrinho.values():
             sheet_content.controls.append(
                 cart_item_row(item, adicionar, remover, atualizar_sheet)
             )
+
         sheet_content.controls.append(ft.Divider())
+
         sheet_content.controls.append(
             ft.Text(f"Total: R$ {total_valor():.2f}", weight=ft.FontWeight.BOLD)
         )
+
+        # 🔥 BOTÃO COM LINK DIRETO (SEM ASYNC)
         sheet_content.controls.append(
-            ft.Button("Finalizar no WhatsApp", on_click=finalizar_whats)
+            ft.TextButton(
+                "Finalizar no WhatsApp",
+                url=gerar_link_whatsapp()
+            )
         )
+
         page.update()
 
     def abrir_revisao(e):
@@ -134,14 +149,18 @@ def main(page: ft.Page):
     def renderizar_categoria(cat):
         categoria_atual[0] = cat
         grid.controls.clear()
+
         for produto in produtos:
             if produto["categoria"] == cat:
                 grid.controls.append(
                     ft.Container(
                         col={"xs": 12, "sm": 6, "md": 4, "lg": 3},
-                        content=product_card(produto, adicionar, remover, get_quantidade),
+                        content=product_card(
+                            produto, adicionar, remover, get_quantidade
+                        ),
                     )
                 )
+
         page.update()
 
     # =========================
@@ -150,21 +169,22 @@ def main(page: ft.Page):
     botoes = ft.Row(
         scroll=ft.ScrollMode.AUTO,
         controls=[
-            ft.OutlinedButton(texto, on_click=lambda e, c=cat: renderizar_categoria(c))
+            ft.OutlinedButton(
+                texto, on_click=lambda e, c=cat: renderizar_categoria(c)
+            )
             for texto, cat in categorias
         ]
     )
 
     resumo_text = ft.Text(weight=ft.FontWeight.BOLD)
 
-    # Barra inferior (fixa usando bottom_appbar)
     bottom_bar = ft.BottomAppBar(
         content=ft.Row(
             alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
             vertical_alignment=ft.CrossAxisAlignment.CENTER,
             controls=[
                 resumo_text,
-                ft.Button("Revisar pedido", on_click=abrir_revisao)
+                ft.TextButton("Revisar pedido", on_click=abrir_revisao)
             ],
         ),
     )
@@ -176,19 +196,17 @@ def main(page: ft.Page):
         botoes,
         ft.Divider(),
         grid,
-        ft.Container(height=60)  # espaço para a barra flutuante
+        ft.Container(height=60)
     )
 
     atualizar_barra()
     renderizar_categoria("lanches")
 
+
 # =========================
 # START
 # =========================
-ft.run(main, 
-    view=ft.AppView.WEB_BROWSER,
-    assets_dir="assets",
-    # host="0.0.0.0",
-    # port=int(os.environ.get("PORT", 8550))
+ft.run(
+    main,
+    assets_dir="assets"
 )
-
